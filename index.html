@@ -1,0 +1,809 @@
+<!DOCTYPE html>
+<html lang="az">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Tesla Cyber 3D Cockpit OS</title>
+    <style>
+        :root {
+            --bg-deep: #020408;
+            --glass-bg: rgba(12, 17, 28, 0.88);
+            --glass-border: rgba(56, 189, 248, 0.25);
+            --neon-blue: #38bdf8;
+            --neon-green: #22c55e;
+            --neon-orange: #f97316;
+            --neon-red: #ef4444;
+            --text-main: #f8fafc;
+            --text-dim: #94a3b8;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            user-select: none;
+            -webkit-user-select: none;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        body {
+            background-color: var(--bg-deep);
+            color: var(--text-main);
+            height: 100vh;
+            width: 100vw;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            perspective: 1200px;
+        }
+
+        /* Arxa Plan Kosmik Ulduzlar */
+        #cyberCanvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 0;
+            pointer-events: none;
+        }
+
+        /* Yuxarı Status və Siqnal Paneli */
+        .cyber-topbar {
+            height: 54px;
+            padding: 0 16px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: rgba(4, 7, 13, 0.92);
+            backdrop-filter: blur(25px);
+            border-bottom: 1px solid var(--glass-border);
+            z-index: 50;
+        }
+
+        .signal-group {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+        }
+
+        .signal-btn {
+            width: 38px;
+            height: 38px;
+            border-radius: 12px;
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid var(--glass-border);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            color: var(--text-dim);
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .signal-btn.active {
+            color: var(--neon-orange);
+            background: rgba(249, 115, 22, 0.2);
+            border-color: var(--neon-orange);
+            box-shadow: 0 0 20px rgba(249, 115, 22, 0.4);
+            animation: blinkAnim 0.6s infinite;
+        }
+
+        @keyframes blinkAnim {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.3; }
+        }
+
+        /* Əsas İş Sahəsi */
+        .cyber-workspace {
+            position: relative;
+            z-index: 10;
+            flex: 1;
+            display: grid;
+            grid-template-columns: 1.3fr 1fr;
+            gap: 12px;
+            padding: 12px;
+            overflow: hidden;
+        }
+
+        @media (max-width: 768px) {
+            .cyber-workspace { grid-template-columns: 1fr; }
+        }
+
+        .glass-card {
+            background: var(--glass-bg);
+            backdrop-filter: blur(35px);
+            border-radius: 26px;
+            border: 1px solid var(--glass-border);
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            padding: 18px;
+            position: relative;
+            overflow: hidden;
+            box-shadow: 0 30px 60px rgba(0, 0, 0, 0.85);
+        }
+
+        .speed-cluster {
+            text-align: center;
+            z-index: 6;
+        }
+
+        .speed-value {
+            font-size: 84px;
+            font-weight: 900;
+            line-height: 0.9;
+            letter-spacing: -4px;
+            color: #ffffff;
+            text-shadow: 0 0 40px rgba(56, 189, 248, 0.7);
+        }
+
+        .speed-unit {
+            font-size: 13px;
+            font-weight: 800;
+            color: var(--neon-blue);
+            letter-spacing: 6px;
+            margin-top: 4px;
+        }
+
+        /* 3D Yol və Avtomobil Səhnəsi */
+        .road-stage {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            top: 0;
+            left: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            perspective: 900px;
+            touch-action: none;
+            overflow: hidden;
+        }
+
+        #roadCanvas {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+        }
+
+        .car-3d-model {
+            position: relative;
+            width: 130px;
+            height: 230px;
+            transform-style: preserve-3d;
+            transform: rotateX(15deg) rotateY(0deg);
+            transition: transform 0.1s ease-out;
+            z-index: 5;
+            filter: drop-shadow(0 25px 35px rgba(0,0,0,0.9));
+        }
+
+        .car-body-part {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
+            border: 2px solid var(--neon-blue);
+            border-radius: 24px;
+            box-shadow: inset 0 0 25px rgba(56, 189, 248, 0.3);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: space-between;
+            padding: 15px;
+        }
+
+        .windshield-glass {
+            width: 80%;
+            height: 45px;
+            background: rgba(2, 6, 23, 0.9);
+            border: 1px solid rgba(56, 189, 248, 0.4);
+            border-radius: 12px;
+        }
+
+        .roof-glass {
+            width: 85%;
+            height: 70px;
+            background: rgba(2, 6, 23, 0.95);
+            border: 1px solid rgba(56, 189, 248, 0.3);
+            border-radius: 10px;
+        }
+
+        .car-lights-row {
+            width: 100%;
+            display: flex;
+            justify-content: space-between;
+            padding: 0 10px;
+        }
+
+        .headlight {
+            width: 24px;
+            height: 6px;
+            background: var(--neon-blue);
+            border-radius: 3px;
+            box-shadow: 0 0 15px var(--neon-blue);
+        }
+
+        .taillight {
+            width: 28px;
+            height: 6px;
+            background: var(--neon-red);
+            border-radius: 3px;
+            box-shadow: 0 0 15px var(--neon-red);
+        }
+
+        /* Sağ Tərəf Paneli */
+        .cyber-panel {
+            background: rgba(8, 12, 20, 0.92);
+            backdrop-filter: blur(35px);
+            border-radius: 26px;
+            border: 1px solid var(--glass-border);
+            padding: 18px;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            box-shadow: 0 30px 60px rgba(0, 0, 0, 0.85);
+        }
+
+        .panel-section { display: none; }
+        .panel-section.active { display: flex; flex-direction: column; justify-content: space-between; height: 100%; }
+
+        .panel-header {
+            font-size: 13px;
+            font-weight: 900;
+            letter-spacing: 1px;
+            border-bottom: 1px solid var(--glass-border);
+            padding-bottom: 10px;
+            margin-bottom: 12px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .cyber-btn {
+            width: 100%;
+            background: rgba(56, 189, 248, 0.12);
+            border: 1px solid var(--glass-border);
+            color: var(--neon-blue);
+            padding: 12px;
+            border-radius: 14px;
+            font-weight: 900;
+            font-size: 12px;
+            text-align: center;
+            cursor: pointer;
+            transition: transform 0.1s;
+            box-shadow: 0 0 20px rgba(56, 189, 248, 0.15);
+        }
+
+        .cyber-btn:active { transform: scale(0.96); }
+
+        .playlist-cyber {
+            flex: 1;
+            overflow-y: auto;
+            max-height: 180px;
+            margin: 10px 0;
+            padding-right: 4px;
+        }
+
+        .track-row {
+            padding: 12px 14px;
+            border-radius: 12px;
+            background: rgba(255, 255, 255, 0.04);
+            margin-bottom: 6px;
+            font-size: 12px;
+            font-weight: 800;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .track-row.active {
+            background: rgba(56, 189, 248, 0.25);
+            border-color: var(--neon-blue);
+            color: var(--neon-blue);
+            box-shadow: 0 0 25px rgba(56, 189, 248, 0.3);
+        }
+
+        /* Alt Dock */
+        .cyber-dock {
+            height: 64px;
+            background: rgba(4, 7, 13, 0.92);
+            backdrop-filter: blur(25px);
+            border-top: 1px solid var(--glass-border);
+            display: flex;
+            justify-content: space-around;
+            align-items: center;
+            padding: 0 12px;
+            z-index: 50;
+        }
+
+        .dock-tab {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 3px;
+            color: var(--text-dim);
+            font-size: 10px;
+            font-weight: 900;
+            padding: 8px 22px;
+            border-radius: 16px;
+            cursor: pointer;
+            transition: all 0.25s;
+        }
+
+        .dock-tab.active {
+            color: var(--neon-blue);
+            background: rgba(56, 189, 248, 0.2);
+            box-shadow: 0 0 30px rgba(56, 189, 248, 0.35);
+        }
+    </style>
+</head>
+<body>
+
+    <canvas id="cyberCanvas"></canvas>
+
+    <!-- Top Bar with Signals & Hazard Lights -->
+    <div class="cyber-topbar">
+        <div class="signal-group">
+            <div class="signal-btn" id="btnLeftSignal" title="Sol Siqnal">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M15 18l-6-6 6-6"/></svg>
+            </div>
+            <div class="signal-btn" id="btnHazard" title="Qəza İşıqları">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+            </div>
+            <div class="signal-btn" id="btnRightSignal" title="Sağ Siqnal">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M9 18l6-6-6-6"/></svg>
+            </div>
+        </div>
+        <div style="font-weight: 900; letter-spacing: 1px;" id="txtClock">12:00</div>
+        <div style="color: var(--neon-green); font-weight: 900;">100% ⚡</div>
+    </div>
+
+    <!-- Workspace -->
+    <div class="cyber-workspace">
+        
+        <!-- Left 3D Stage with Road & Interactive Car -->
+        <div class="glass-card">
+            <div style="display: flex; justify-content: space-between; z-index: 6;">
+                <span style="font-size: 11px; color: var(--text-dim); font-weight: 900;">3D YOL VƏ HƏRƏKƏT</span>
+                <span style="font-size: 11px; color: var(--neon-green); font-weight: 900;" id="txtGpsState">GPS AKTİV</span>
+            </div>
+
+            <div class="speed-cluster">
+                <div class="speed-value" id="txtSpeed">0</div>
+                <div class="speed-unit">KM/H</div>
+            </div>
+
+            <!-- 3D Road & Rotatable Car Stage -->
+            <div class="road-stage" id="roadStage">
+                <canvas id="roadCanvas"></canvas>
+                <div class="car-3d-model" id="carModel">
+                    <div class="car-body-part">
+                        <div class="car-lights-row">
+                            <div class="headlight" id="leftHeadlight"></div>
+                            <div class="headlight" id="rightHeadlight"></div>
+                        </div>
+                        <div class="windshield-glass"></div>
+                        <div class="roof-glass"></div>
+                        <div class="car-lights-row">
+                            <div class="taillight" id="leftTaillight"></div>
+                            <div class="taillight" id="rightTaillight"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div style="font-size: 10px; color: var(--text-dim); z-index: 6; text-align: center; font-weight: 900;" id="txtGpsDetail">
+                Modeli fırladın • Siqnalları yuxarıdan yandırın
+            </div>
+        </div>
+
+        <!-- Right Control Panel -->
+        <div class="cyber-panel">
+            
+            <!-- PANE 1: Driving & Controls -->
+            <div class="panel-section active" id="paneDrive">
+                <div>
+                    <div class="panel-header">
+                        <span>3D Təhlükəsizlik İşıqları</span>
+                        <span style="color: var(--neon-blue);">PRO</span>
+                    </div>
+
+                    <div style="margin-bottom: 14px;">
+                        <div style="font-size: 11px; color: var(--text-dim); font-weight: 900; margin-bottom: 6px;">3D MODEL MƏRKƏZLƏŞDİRMƏ</div>
+                        <button class="cyber-btn" id="btnResetCar">MODELLİ SIFIRLA (RESET)</button>
+                    </div>
+
+                    <div style="margin-bottom: 14px;">
+                        <div style="font-size: 11px; color: var(--text-dim); font-weight: 900; margin-bottom: 6px;">TƏHLÜKƏSİZLİK WAKE LOCK</div>
+                        <button class="cyber-btn" style="background: rgba(34, 197, 94, 0.15); border-color: rgba(34, 197, 94, 0.4); color: var(--neon-green);">EKRAN DAİMİ AÇIQDIR</button>
+                    </div>
+                </div>
+
+                <div style="background: rgba(255,255,255,0.03); padding: 12px; border-radius: 14px; border: 1px solid var(--glass-border); text-align: center;">
+                    <div style="font-size: 10px; color: var(--text-dim); font-weight: 900;">SİQNAL SƏS SİSTEMİ</div>
+                    <div style="font-size: 13px; font-weight: 900; color: var(--neon-orange); margin-top: 2px;">WEB AUDIO SYNTH AKTİV</div>
+                </div>
+            </div>
+
+            <!-- PANE 2: Music Engine -->
+            <div class="panel-section" id="paneMusic">
+                <div class="panel-header">
+                    <span>Cyber Audio Pleyer</span>
+                    <span style="font-size: 11px; color: var(--neon-blue);" id="txtSongCount">0 Mahnı</span>
+                </div>
+
+                <label class="cyber-btn" style="border-style: dashed; margin-bottom: 8px;">
+                    + MP3 MAHNISI SEÇ VƏ YÜKLƏ
+                    <input type="file" id="inputAudio" accept="audio/*" multiple style="display: none;">
+                </label>
+
+                <div class="playlist-cyber" id="playlistContainer">
+                    <div style="text-align: center; color: var(--text-dim); font-size: 11px; margin-top: 40px; font-weight: 900;">
+                        Mahnı əlavə etmək üçün yuxarıya basın.
+                    </div>
+                </div>
+
+                <div style="display: flex; gap: 8px; margin-top: 6px;">
+                    <button class="cyber-btn" id="btnPrevAudio">⏮</button>
+                    <button class="cyber-btn" id="btnPlayAudio" style="background: var(--neon-blue); color: #000; font-weight: 900;">OYNAT / DAYANDIR</button>
+                    <button class="cyber-btn" id="btnNextAudio">⏭</button>
+                </div>
+            </div>
+
+            <!-- PANE 3: Telemetry -->
+            <div class="panel-section" id="paneTelemetry">
+                <div class="panel-header">
+                    <span>Sistem Telemetriya</span>
+                    <span>🔋 🌡️</span>
+                </div>
+
+                <div style="background: rgba(255,255,255,0.03); padding: 14px; border-radius: 16px; border: 1px solid var(--glass-border); text-align: center; margin-bottom: 10px;">
+                    <div style="font-size: 11px; color: var(--text-dim); font-weight: 900;">AKKUMULYATOR TEMPERATURU</div>
+                    <div style="font-size: 24px; font-weight: 900; color: var(--neon-blue); margin-top: 4px;">32.5° C</div>
+                </div>
+
+                <div style="background: rgba(255,255,255,0.03); padding: 14px; border-radius: 16px; border: 1px solid var(--glass-border); text-align: center;">
+                    <div style="font-size: 11px; color: var(--text-dim); font-weight: 900;">SÜRƏT ÖLÇƏN MÖVQEYİ</div>
+                    <div style="font-size: 24px; font-weight: 900; color: var(--neon-green); margin-top: 4px;">REAL-TIME GPS</div>
+                </div>
+            </div>
+
+        </div>
+
+    </div>
+
+    <!-- Bottom Dock -->
+    <div class="cyber-dock">
+        <div class="dock-tab active" data-pane="paneDrive">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M19 17h2c.6 0 1-.4 1-1v-3c0-.9-.7-1.7-1.5-1.9C18.7 10.6 16 10 16 10s-1.3-1.4-2.2-2.3c-.5-.4-1.1-.7-1.8-.7H5c-.6 0-1.1.4-1.4.9l-1.5 2.8C1.4 11.2 1 12.1 1 13v3c0 .6.4 1 1 1h2"/><circle cx="7" cy="17" r="2"/><circle cx="17" cy="17" r="2"/></svg>
+            SÜRÜŞ
+        </div>
+        <div class="dock-tab" data-pane="paneMusic">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>
+            MƏDİA
+        </div>
+        <div class="dock-tab" data-pane="paneTelemetry">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M18 20V10M12 20V4M6 20v-6"/></svg>
+            SİSTEM
+        </div>
+    </div>
+
+    <audio id="audioEngine" style="display: none;"></audio>
+
+    <script>
+        let speedVal = 0;
+        let songList = [];
+        let trackIndex = -1;
+        let isPlaying = false;
+
+        // Web Audio Səsləri (Siqnal klik səsi üçün)
+        let audioCtx = null;
+        function playTickSound() {
+            try {
+                if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+                const osc = audioCtx.createOscillator();
+                const gain = audioCtx.createGain();
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(900, audioCtx.currentTime);
+                gain.gain.setValueAtTime(0.08, audioCtx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.04);
+                osc.connect(gain);
+                gain.connect(audioCtx.destination);
+                osc.start();
+                osc.stop(audioCtx.currentTime + 0.04);
+            } catch(e) {}
+        }
+
+        // Siqnal və Qəza İşıqları Logikası
+        let leftSignalActive = false;
+        let rightSignalActive = false;
+        let hazardActive = false;
+        let signalTimer = null;
+
+        const btnLeft = document.getElementById('btnLeftSignal');
+        const btnRight = document.getElementById('btnRightSignal');
+        const btnHazard = document.getElementById('btnHazard');
+        const leftHeadlight = document.getElementById('leftHeadlight');
+        const rightHeadlight = document.getElementById('rightHeadlight');
+        const leftTaillight = document.getElementById('leftTaillight');
+        const rightTaillight = document.getElementById('rightTaillight');
+
+        function updateSignalsVisual() {
+            btnLeft.classList.toggle('active', leftSignalActive);
+            btnRight.classList.toggle('active', rightSignalActive);
+            btnHazard.classList.toggle('active', hazardActive);
+
+            leftHeadlight.style.opacity = (leftSignalActive || hazardActive) ? (Date.now() % 600 < 300 ? '1' : '0.2') : '1';
+            leftTaillight.style.opacity = (leftSignalActive || hazardActive) ? (Date.now() % 600 < 300 ? '1' : '0.2') : '1';
+
+            rightHeadlight.style.opacity = (rightSignalActive || hazardActive) ? (Date.now() % 600 < 300 ? '1' : '0.2') : '1';
+            rightTaillight.style.opacity = (rightSignalActive || hazardActive) ? (Date.now() % 600 < 300 ? '1' : '0.2') : '1';
+        }
+
+        setInterval(updateSignalsVisual, 100);
+        setInterval(() => {
+            if (leftSignalActive || rightSignalActive || hazardActive) playTickSound();
+        }, 600);
+
+        btnLeft.addEventListener('click', () => {
+            leftSignalActive = !leftSignalActive;
+            rightSignalActive = false;
+            hazardActive = false;
+        });
+
+        btnRight.addEventListener('click', () => {
+            rightSignalActive = !rightSignalActive;
+            leftSignalActive = false;
+            hazardActive = false;
+        });
+
+        btnHazard.addEventListener('click', () => {
+            hazardActive = !hazardActive;
+            leftSignalActive = false;
+            rightSignalActive = false;
+        });
+
+        // 3D Car Touch Rotation
+        const roadStage = document.getElementById('roadStage');
+        const carModel = document.getElementById('carModel');
+        let isDragging = false;
+        let startX = 0, startY = 0;
+        let rotX = 15, rotY = 0;
+
+        roadStage.addEventListener('pointerdown', (e) => {
+            isDragging = true;
+            startX = e.clientX;
+            startY = e.clientY;
+            roadStage.setPointerCapture(e.pointerId);
+        });
+
+        roadStage.addEventListener('pointermove', (e) => {
+            if (!isDragging) return;
+            const deltaX = e.clientX - startX;
+            const deltaY = e.clientY - startY;
+            startX = e.clientX;
+            startY = e.clientY;
+
+            rotY += deltaX * 0.8;
+            rotX -= deltaY * 0.8;
+            rotX = Math.max(-45, Math.min(60, rotX));
+
+            carModel.style.transform = `rotateX(${rotX}deg) rotateY(${rotY}deg)`;
+        });
+
+        roadStage.addEventListener('pointerup', (e) => {
+            isDragging = false;
+            roadStage.releasePointerCapture(e.pointerId);
+        });
+
+        document.getElementById('btnResetCar').addEventListener('click', () => {
+            rotX = 15;
+            rotY = 0;
+            carModel.style.transform = `rotateX(${rotX}deg) rotateY(${rotY}deg)`;
+        });
+
+        // Saat
+        function updateClock() {
+            const n = new Date();
+            document.getElementById('txtClock').innerText = n.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        }
+        setInterval(updateClock, 1000);
+        updateClock();
+
+        // Wake Lock
+        async function initWakeLock() {
+            try {
+                if ('wakeLock' in navigator) await navigator.wakeLock.request('screen');
+            } catch(e) {}
+        }
+        initWakeLock();
+
+        // Musiqi Yüklənməsi
+        const inputAudio = document.getElementById('inputAudio');
+        const audioElement = document.getElementById('audioEngine');
+
+        inputAudio.addEventListener('change', (e) => {
+            const files = Array.from(e.target.files);
+            if (!files.length) return;
+
+            files.forEach(file => {
+                const fileUrl = URL.createObjectURL(file);
+                songList.push({ name: file.name, url: fileUrl });
+            });
+
+            document.getElementById('txtSongCount').innerText = `${songList.length} Mahnı`;
+            renderPlaylist();
+
+            if (trackIndex === -1) selectTrack(0, true);
+        });
+
+        function renderPlaylist() {
+            const box = document.getElementById('playlistContainer');
+            box.innerHTML = '';
+            songList.forEach((s, idx) => {
+                const row = document.createElement('div');
+                row.className = `track-row ${idx === trackIndex ? 'active' : ''}`;
+                row.innerText = s.name;
+                row.addEventListener('click', () => selectTrack(idx, true));
+                box.appendChild(row);
+            });
+        }
+
+        function selectTrack(idx, play = true) {
+            if (idx < 0 || idx >= songList.length) return;
+            trackIndex = idx;
+            const s = songList[idx];
+            audioElement.src = s.url;
+            renderPlaylist();
+            if (play) {
+                audioElement.play();
+                isPlaying = true;
+            }
+        }
+
+        document.getElementById('btnPlayAudio').addEventListener('click', () => {
+            if (!songList.length) return;
+            if (isPlaying) {
+                audioElement.pause();
+                isPlaying = false;
+            } else {
+                audioElement.play();
+                isPlaying = true;
+            }
+        });
+
+        document.getElementById('btnNextAudio').addEventListener('click', () => {
+            if (trackIndex + 1 < songList.length) selectTrack(trackIndex + 1, true);
+        });
+
+        document.getElementById('btnPrevAudio').addEventListener('click', () => {
+            if (trackIndex - 1 >= 0) selectTrack(trackIndex - 1, true);
+        });
+
+        // GPS Spidometr
+        function initGps() {
+            if ("geolocation" in navigator) {
+                navigator.geolocation.watchPosition(
+                    (pos) => {
+                        let mps = pos.coords.speed;
+                        if (mps !== null && !isNaN(mps) && mps > 0.3) {
+                            speedVal = Math.round(mps * 3.6);
+                        } else {
+                            speedVal = 0;
+                        }
+                        document.getElementById('txtSpeed').innerText = speedVal;
+                        if (pos.coords.accuracy) {
+                            document.getElementById('txtGpsState').innerText = "GPS AKTİV";
+                            document.getElementById('txtGpsDetail').innerText = `Dəqiqlik: ±${Math.round(pos.coords.accuracy)}m`;
+                        }
+                    },
+                    (err) => {
+                        document.getElementById('txtGpsState').innerText = "GPS GÖZLƏNİLİR";
+                        document.getElementById('txtGpsDetail').innerText = "Açıq havaya çıxın";
+                    },
+                    { enableHighAccuracy: true, maximumAge: 0, timeout: 5000 }
+                );
+            }
+        }
+        window.addEventListener('load', initGps);
+
+        // Menyu Keçidləri
+        document.querySelectorAll('.dock-tab').forEach(btn => {
+            btn.addEventListener('click', () => {
+                document.querySelectorAll('.dock-tab').forEach(b => b.classList.remove('active'));
+                document.querySelectorAll('.panel-section').forEach(s => s.classList.remove('active'));
+
+                btn.classList.add('active');
+                document.getElementById(btn.dataset.pane).classList.add('active');
+            });
+        });
+
+        // Canvas 3D Background & Animated Road
+        const cyberCanvas = document.getElementById('cyberCanvas');
+        const cyberCtx = cyberCanvas.getContext('2d');
+        let bgStars = [];
+
+        function resizeCyber() {
+            cyberCanvas.width = window.innerWidth;
+            cyberCanvas.height = window.innerHeight;
+        }
+        window.addEventListener('resize', resizeCyber);
+        resizeCyber();
+
+        for (let i = 0; i < 45; i++) {
+            bgStars.push({
+                x: (Math.random() - 0.5) * cyberCanvas.width * 2,
+                y: (Math.random() - 0.5) * cyberCanvas.height * 2,
+                z: Math.random() * cyberCanvas.width,
+                r: Math.random() * 2 + 0.5
+            });
+        }
+
+        function renderCyberBg() {
+            cyberCtx.fillStyle = "rgba(2, 4, 8, 0.4)";
+            cyberCtx.fillRect(0, 0, cyberCanvas.width, cyberCanvas.height);
+
+            const cx = cyberCanvas.width / 2;
+            const cy = cyberCanvas.height / 2;
+            const speedFactor = 1 + (speedVal / 3);
+
+            bgStars.forEach(s => {
+                s.z -= speedFactor;
+                if (s.z <= 0) s.z = cyberCanvas.width;
+
+                const k = 250 / s.z;
+                const px = s.x * k + cx;
+                const py = s.y * k + cy;
+
+                if (px >= 0 && px <= cyberCanvas.width && py >= 0 && py <= cyberCanvas.height) {
+                    const sz = Math.max(0.1, (1 - s.z / cyberCanvas.width) * 3 * s.r);
+                    cyberCtx.fillStyle = "rgba(56, 189, 248, 0.8)";
+                    cyberCtx.beginPath();
+                    cyberCtx.arc(px, py, sz, 0, Math.PI * 2);
+                    cyberCtx.fill();
+                }
+            });
+            requestAnimationFrame(renderCyberBg);
+        }
+        renderCyberBg();
+
+        // 3D Moving Road Canvas
+        const roadCanvas = document.getElementById('roadCanvas');
+        const roadCtx = roadCanvas.getContext('2d');
+        let roadStrips = [];
+
+        function resizeRoad() {
+            roadCanvas.width = roadCanvas.parentElement.clientWidth;
+            roadCanvas.height = roadCanvas.parentElement.clientHeight;
+        }
+        window.addEventListener('resize', resizeRoad);
+        resizeRoad();
+
+        for (let i = 0; i < 12; i++) roadStrips.push({ y: i * 40 });
+
+        function renderRoad3D() {
+            roadCtx.clearRect(0, 0, roadCanvas.width, roadCanvas.height);
+            roadCtx.strokeStyle = "rgba(56, 189, 248, 0.4)";
+            roadCtx.lineWidth = 3;
+            const f = 1 + (speedVal / 3);
+
+            roadStrips.forEach(st => {
+                st.y += 4.5 * f;
+                if (st.y > roadCanvas.height) st.y = 0;
+                roadCtx.beginPath();
+                roadCtx.moveTo(roadCanvas.width / 2, st.y);
+                roadCtx.lineTo(roadCanvas.width / 2, st.y + 25);
+                roadCtx.stroke();
+            });
+            requestAnimationFrame(renderRoad3D);
+        }
+        renderRoad3D();
+    </script>
+</body>
+</html>
